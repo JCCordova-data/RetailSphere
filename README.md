@@ -8,7 +8,7 @@ RetailSphere is a portfolio project focused on designing and building an end-to-
 
 The goal is to transform raw e-commerce data into reliable analytical datasets and business intelligence dashboards.
 
-**Current status:** Environment setup and project scaffolding.
+**Current status:** Project scaffolding completed. Local PostgreSQL 18 infrastructure is operational through Docker Compose. Data ingestion and transformation pipelines are pending implementation.
 
 ## Business Objectives
 
@@ -42,9 +42,50 @@ RetailSphere/
 ├── sql/
 ├── src/
 ├── tests/
+├── .env.example
 ├── .gitignore
+├── compose.yaml
 └── README.md
 ```
+
+## Local PostgreSQL Setup
+
+**Prerequisites:** Docker Desktop with WSL2 integration and Docker Compose.
+
+1. Create your local environment file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Open `.env` and replace `CHANGE_ME_TO_A_STRONG_PASSWORD` with your own strong password. Never commit `.env` to Git.
+
+3. Start PostgreSQL:
+
+   ```bash
+   docker compose up -d
+   ```
+
+4. Verify the service:
+
+   ```bash
+   docker compose ps
+   docker compose exec postgres pg_isready -U retailsphere -d retailsphere
+   ```
+
+5. Run a test SQL query:
+
+   ```bash
+   docker compose exec postgres psql -U retailsphere -d retailsphere -c "SELECT current_database(), current_user;"
+   ```
+
+**Local connection:** `127.0.0.1:5432`
+
+**Database:** `retailsphere`
+
+**User:** `retailsphere`
+
+PostgreSQL data is stored in the Docker named volume `retailsphere_postgres_data`. Restarting the container does not remove the volume. Avoid `docker compose down -v` unless you explicitly intend to delete the stored data.
 
 ## Dataset
 
