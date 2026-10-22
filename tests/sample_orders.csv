@@ -1,0 +1,6 @@
+order_id,customer_id,order_status
+ORD001,CUST001,delivered
+ORD002,CUST002,shipped
+ORD003,CUST003,canceled
+ORD004,CUST004
+ORD005,CUST005,delivered
