@@ -89,12 +89,37 @@ PostgreSQL data is stored in the Docker named volume `retailsphere_postgres_data
 
 ## Dataset
 
-Brazilian E-Commerce Public Dataset by Olist.
+RetailSphere uses the [Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce).
 
-Source: https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce
+The dataset contains nine CSV files covering orders, customers, order items, payments, reviews, products, sellers, geolocation, and product category translations.
 
-The dataset files are not included in this repository.
+### Raw Data Setup
+
+1. Download the dataset ZIP archive from Kaggle.
+2. Extract the nine CSV files into `data/raw/`, keeping their original filenames.
+3. Verify the extracted files:
+
+   ```bash
+   ls -lh data/raw/
+   wc -l data/raw/*.csv
+   ```
+
+4. Confirm that Git ignores the raw CSV files:
+
+   ```bash
+   git check-ignore -v data/raw/*.csv
+   ```
+
+The original CSV files are intentionally excluded from version control through `.gitignore`. They must be downloaded separately when setting up the project.
+
+**Data integrity:** During initial dataset preparation, all nine extracted CSV files were verified against the downloaded ZIP archive using SHA-256 checksums. No differences were detected.
+
+Raw source files should remain unchanged. Data cleaning and transformations will be implemented in subsequent pipeline stages.
 
 ## Development Status
 
-The project is currently in its initial environment preparation phase. Data ingestion, database infrastructure, transformation models, automated tests, and dashboards will be implemented incrementally.
+The project environment and local PostgreSQL 18 infrastructure are operational.
+
+All nine original Olist CSV files have been prepared and verified in the local RAW data directory. A basic Python CSV reading and validation exercise has also been completed.
+
+The PostgreSQL ingestion pipeline, SQL/dbt transformation models, automated data quality tests, orchestration, and Power BI dashboards are pending implementation.
