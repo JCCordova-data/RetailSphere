@@ -21,6 +21,7 @@ def main():
         non_delivered_with_date = 0
         late_deliveries = 0
         eligible_deliveries = 0
+        invalid_date_exclusions = 0
 
         #Using a for loop to iterate for each row
         for row in reader:
@@ -67,24 +68,21 @@ def main():
 
             #Counts late deliveries only when both dates are available
             if (row["order_status"] == "delivered" and delivery_raw is not None and delivery_raw.strip() and estimated_raw is not None and estimated_raw.strip()):
+                try:
+                    delivery_date = datetime.strptime(delivery_raw, "%Y-%m-%d %H:%M:%S")
+                    estimated_date = datetime.strptime(estimated_raw, "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    invalid_date_exclusions += 1
+                    continue
+
                 eligible_deliveries += 1
-
-                delivery_date = datetime.strptime(
-                    delivery_raw,
-                    "%Y-%m-%d %H:%M:%S"
-                )
-
-                estimated_date = datetime.strptime(
-                    estimated_raw,
-                    "%Y-%m-%d %H:%M:%S"
-                )
 
                 if delivery_date.date() > estimated_date.date():
                     late_deliveries += 1
 
 
         #Calculating the late delivery rate
-        late_delivery_rate = (late_deliveries / eligible_deliveries) * 100
+        late_delivery_rate = (late_deliveries / eligible_deliveries) * 100 if eligible_deliveries else 0.0
 
         #Printing the results
         print(f"Total Orders: {total_orders}")
@@ -98,6 +96,7 @@ def main():
         print(f"Non-delivered With Date: {non_delivered_with_date}")
         print(f"Late Deliveries: {late_deliveries}")
         print(f"Eligible Deliveries: {eligible_deliveries}")
+        print(f"Excluded Due to Invalid Dates: {invalid_date_exclusions}")
         print(f"Late Delivery Rate: {late_delivery_rate:.2f}%")
 
 
