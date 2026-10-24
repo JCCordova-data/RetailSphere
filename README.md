@@ -8,7 +8,7 @@ RetailSphere is a portfolio project focused on designing and building an end-to-
 
 The goal is to transform raw e-commerce data into reliable analytical datasets and business intelligence dashboards.
 
-**Current status:** Project scaffolding completed. Local PostgreSQL 18 infrastructure is operational through Docker Compose. Data ingestion and transformation pipelines are pending implementation.
+**Current status:** Local PostgreSQL 18 infrastructure is available through Docker Compose. RS-021 implements configuration-driven RAW ingestion for all nine Olist CSVs, with offline unit tests. Deployment and generalized database integration validation remain pending.
 
 ## Business Objectives
 
@@ -122,4 +122,11 @@ The project environment and local PostgreSQL 18 infrastructure are operational.
 
 All nine original Olist CSV files have been prepared and verified in the local RAW data directory. A basic Python CSV reading and validation exercise has also been completed.
 
-The PostgreSQL ingestion pipeline, SQL/dbt transformation models, automated data quality tests, orchestration, and Power BI dashboards are pending implementation.
+RS-021 provides a shared Psycopg 3 ingestion engine, explicit dataset contracts,
+versioned DDL for the eight missing RAW tables, and a compatible RS-020 orders adapter.
+The CLI requires `--replace` to authorize replacement; `--dry-run` validates CSVs
+without connecting to PostgreSQL. See the [RS-021 guide](docs/RS-021.md) for usage,
+offline tests, transaction boundaries, and the deployment plan. No deployment is
+performed by importing the modules or running offline tests.
+
+SQL/dbt transformation models, orchestration, and Power BI dashboards remain planned.

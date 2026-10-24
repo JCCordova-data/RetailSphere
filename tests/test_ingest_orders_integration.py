@@ -1,8 +1,8 @@
-"""Opt-in RS-020 tests; these create, truncate and drop ONLY a unique test table.
+"""Opt-in RS-020/RS-021 tests; write ONLY to uniquely named test tables.
 
 Manual prerequisites: PostgreSQL 18, a dedicated database ending in _test,
 a pre-created schema rs020_test, and a restricted login with USAGE/CREATE on
-that schema and no table or column privileges on raw.orders. Do not use a
+that schema and no table or column privileges on any configured RAW table. Do not use a
 production database or login. No PG* application settings are used as fallback.
 Set RS020_RUN_INTEGRATION=1 and all RS020_TEST_PG{HOST,PORT,DATABASE,USER,PASSWORD}
 variables, then run this module explicitly with unittest discovery.
@@ -19,6 +19,8 @@ import psycopg
 from psycopg import sql
 
 from src.ingest_orders import COLUMNS, ingest_orders
+from src.ingest_raw import ingest_dataset
+from src.raw_datasets import DATASETS
 
 
 SCHEMA = "rs020_test"
@@ -53,16 +55,19 @@ class IngestOrdersIntegrationTests(unittest.TestCase):
                 database, superuser = cursor.fetchone()
                 if database != self.settings["dbname"] or superuser:
                     raise RuntimeError("Require the dedicated database and a non-superuser login.")
-                cursor.execute("SELECT to_regclass('raw.orders')")
-                raw_orders = cursor.fetchone()[0]
-                if raw_orders is not None:
-                    cursor.execute(
-                        "SELECT has_table_privilege(%s, %s) OR "
-                        "has_any_column_privilege(%s, 'SELECT,INSERT,UPDATE,REFERENCES')",
-                        (raw_orders, "SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN",
-                         raw_orders))
-                    if cursor.fetchone()[0]:
-                        raise RuntimeError("Test login must have no privileges on raw.orders.")
+                for dataset in DATASETS.values():
+                    cursor.execute("SELECT to_regclass(%s)",
+                                   (f"{dataset.target_schema}.{dataset.target_table}",))
+                    raw_table = cursor.fetchone()[0]
+                    if raw_table is not None:
+                        cursor.execute(
+                            "SELECT has_table_privilege(%s, %s) OR "
+                            "has_any_column_privilege(%s, 'SELECT,INSERT,UPDATE,REFERENCES')",
+                            (raw_table,
+                             "SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN",
+                             raw_table))
+                        if cursor.fetchone()[0]:
+                            raise RuntimeError("Test login must have no privileges on RAW tables.")
                 cursor.execute("SELECT has_schema_privilege(%s, 'USAGE') AND "
                                "has_schema_privilege(%s, 'CREATE')", (SCHEMA, SCHEMA))
                 if not cursor.fetchone()[0]:
@@ -81,8 +86,11 @@ class IngestOrdersIntegrationTests(unittest.TestCase):
 
     def drop_table(self):
         # Exact object created by this test; never drop schemas or use CASCADE.
+        self.drop_target(self.target)
+
+    def drop_target(self, target):
         with psycopg.connect(**self.settings) as connection:
-            connection.execute(sql.SQL("DROP TABLE {}").format(self.target))
+            connection.execute(sql.SQL("DROP TABLE {}").format(target))
 
     def load(self, rows):
         self.path.write_text(",".join(COLUMNS) + "\n" + rows, encoding="utf-8")
@@ -107,6 +115,42 @@ class IngestOrdersIntegrationTests(unittest.TestCase):
         with self.assertRaises(psycopg.errors.CheckViolation):
             self.load(bad_rows)
         self.assertCountEqual(self.read_rows(), expected)
+
+    def test_all_dataset_contracts_on_isolated_tables(self):
+        fields = ['00123', '""', '', ' ação ', 'NULL', '"a,b"', '"line\nend"', '000', '1.2300']
+        values = ["00123", "", None, " ação ", "NULL", "a,b", "line\nend", "000", "1.2300"]
+        for name, dataset in DATASETS.items():
+            with self.subTest(dataset=name):
+                table = "rs021_" + uuid4().hex
+                target = sql.Identifier(SCHEMA, table)
+                columns = sql.SQL(", ").join(
+                    sql.SQL("{} TEXT").format(sql.Identifier(column)) for column in dataset.columns)
+                with psycopg.connect(**self.settings) as connection:
+                    connection.execute(sql.SQL(
+                        "CREATE TABLE {} ({}, CHECK ({} <> 'reject'))"
+                    ).format(target, columns, sql.Identifier(dataset.columns[0])))
+                self.addCleanup(self.drop_target, target)
+
+                header = ",".join(dataset.columns) + "\n"
+                record = ",".join(fields[:len(dataset.columns)]) + "\n"
+                expected = [tuple(values[:len(dataset.columns)])] * 2
+                self.path.write_text(header + record * 2, encoding="utf-8")
+                with patch("src.ingest_raw.connection_settings", return_value=self.settings):
+                    for _ in range(2):
+                        self.assertEqual(ingest_dataset(
+                            dataset, self.path, 2, SCHEMA, table), 2)
+                        with psycopg.connect(**self.settings) as connection:
+                            rows = connection.execute(sql.SQL("SELECT * FROM {}")
+                                                      .format(target)).fetchall()
+                        self.assertCountEqual(rows, expected)
+
+                    rejected = ",".join(["reject"] + fields[1:len(dataset.columns)]) + "\n"
+                    self.path.write_text(header + record + rejected, encoding="utf-8")
+                    with self.assertRaises(psycopg.errors.CheckViolation):
+                        ingest_dataset(dataset, self.path, 2, SCHEMA, table)
+                with psycopg.connect(**self.settings) as connection:
+                    rows = connection.execute(sql.SQL("SELECT * FROM {}").format(target)).fetchall()
+                self.assertCountEqual(rows, expected)
 
 
 if __name__ == "__main__":
