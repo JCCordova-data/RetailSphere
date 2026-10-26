@@ -22,3 +22,9 @@ Thumbs.db
 # Configuración local de editores
 .vscode/
 .idea/
+
+# dbt initialization examples
+dbt/retailsphere/example_backup/
+
+# dbt initialization logs
+dbt/logs/
