@@ -9,3 +9,58 @@ models:
         data_tests:
           - unique
           - not_null
+
+  - name: customers
+    description: "Olist customers with all source rows and TEXT values preserved, including invalid geographic attributes."
+    columns:
+      - name: customer_id
+        description: "Unique identifier for each customer record."
+        data_tests:
+          - unique
+          - not_null
+
+      - name: customer_unique_id
+        description: "Buyer identifier; repeated values may represent returning buyers and are preserved."
+        data_tests:
+          - not_null
+
+      - name: customer_zip_code_prefix
+        description: "Five-digit postal prefix stored as TEXT to preserve leading zeros."
+
+      - name: customer_city
+        description: "Customer city preserved as source TEXT."
+
+      - name: customer_state
+        description: "Brazilian UF code, including the Federal District (DF)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - AC
+                  - AL
+                  - AP
+                  - AM
+                  - BA
+                  - CE
+                  - DF
+                  - ES
+                  - GO
+                  - MA
+                  - MT
+                  - MS
+                  - MG
+                  - PA
+                  - PB
+                  - PR
+                  - PE
+                  - PI
+                  - RJ
+                  - RN
+                  - RS
+                  - RO
+                  - RR
+                  - SC
+                  - SP
+                  - SE
+                  - TO
