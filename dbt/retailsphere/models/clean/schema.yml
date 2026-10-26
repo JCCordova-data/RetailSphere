@@ -1,0 +1,11 @@
+version: 2
+
+models:
+  - name: orders
+    description: "Cleaned Olist orders with typed timestamps and delivery quality indicators."
+    columns:
+      - name: order_id
+        description: "Unique identifier for each order."
+        data_tests:
+          - unique
+          - not_null
