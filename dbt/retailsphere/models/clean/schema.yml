@@ -64,3 +64,60 @@ models:
                   - SP
                   - SE
                   - TO
+
+  - name: order_items
+    description: "All RAW items preserved at (order_id, order_item_id) grain, with safely typed values and conversion quality flags."
+    columns:
+      - name: order_id
+        description: "Order identifier preserved as source TEXT; part of the composite item key."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: raw.orders
+                field: order_id
+
+      - name: order_item_id
+        description: "Item identifier preserved as source TEXT; unique only within an order."
+        data_tests:
+          - not_null
+
+      - name: product_id
+        description: "Product identifier preserved as source TEXT."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: raw.products
+                field: product_id
+
+      - name: seller_id
+        description: "Seller identifier preserved as source TEXT."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: raw.sellers
+                field: seller_id
+
+      - name: shipping_limit_date
+        description: "Safely converted TIMESTAMP; missing or invalid source values become NULL."
+
+      - name: price
+        description: "Unconstrained NUMERIC without rounding or zero defaults; must be greater than zero. Missing, malformed or nonfinite source values become NULL."
+        data_tests:
+          - not_null
+
+      - name: freight_value
+        description: "Unconstrained NUMERIC without rounding or zero defaults; must be nonnegative. Missing, malformed or nonfinite source values become NULL."
+        data_tests:
+          - not_null
+
+      - name: is_shipping_limit_date_invalid
+        description: "TRUE for non-NULL source values rejected by safe_timestamp; FALSE for source NULLs."
+
+      - name: is_price_invalid
+        description: "TRUE for non-NULL malformed or nonfinite source values; FALSE for source NULLs and finite numbers, including nonpositive prices reported by range tests."
+
+      - name: is_freight_value_invalid
+        description: "TRUE for non-NULL malformed or nonfinite source values; FALSE for source NULLs and finite numbers, including negative freight reported by range tests."
