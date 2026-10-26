@@ -121,3 +121,80 @@ models:
 
       - name: is_freight_value_invalid
         description: "TRUE for non-NULL malformed or nonfinite source values; FALSE for source NULLs and finite numbers, including negative freight reported by range tests."
+
+  - name: products
+    description: "All RAW products preserved without filtering, deduplication or imputation, with safely typed attributes and conversion quality flags. Materialized as a view via the clean configuration."
+    columns:
+      - name: product_id
+        description: "Unique product identifier preserved as source TEXT."
+        data_tests:
+          - unique
+          - not_null
+
+      - name: product_category_name
+        description: "Category preserved as source TEXT, including NULL; no Unknown category is assigned in CLEAN."
+
+      - name: product_name_lenght
+        description: "Safely converted INTEGER, preserving the Olist spelling. Source NULLs remain NULL; invalid or out-of-range INTEGER inputs become NULL. Nonnegative values are required by range tests."
+
+      - name: product_description_lenght
+        description: "Safely converted INTEGER, preserving the Olist spelling. Source NULLs remain NULL; invalid or out-of-range INTEGER inputs become NULL. Nonnegative values are required by range tests."
+
+      - name: product_photos_qty
+        description: "Safely converted INTEGER. Source NULLs remain NULL; invalid or out-of-range INTEGER inputs become NULL. Nonnegative values are required by range tests."
+
+      - name: product_weight_g
+        description: "Safely converted finite NUMERIC without rounding or imputation. Source NULLs remain NULL; invalid or nonfinite inputs become NULL. Zero is preserved; negative weights are reported by range tests."
+
+      - name: product_length_cm
+        description: "Safely converted finite NUMERIC. Source NULLs remain NULL; invalid or nonfinite inputs become NULL. Strictly positive values are required by range tests."
+
+      - name: product_height_cm
+        description: "Safely converted finite NUMERIC. Source NULLs remain NULL; invalid or nonfinite inputs become NULL. Strictly positive values are required by range tests."
+
+      - name: product_width_cm
+        description: "Safely converted finite NUMERIC. Source NULLs remain NULL; invalid or nonfinite inputs become NULL. Strictly positive values are required by range tests."
+
+      - name: is_product_name_lenght_invalid
+        description: "TRUE for non-NULL source values rejected as INTEGER, including overflow; FALSE for source NULLs and valid integers, including negatives reported by range tests."
+        data_tests:
+          - not_null
+
+      - name: is_product_description_lenght_invalid
+        description: "TRUE for non-NULL source values rejected as INTEGER, including overflow; FALSE for source NULLs and valid integers, including negatives reported by range tests."
+        data_tests:
+          - not_null
+
+      - name: is_product_photos_qty_invalid
+        description: "TRUE for non-NULL source values rejected as INTEGER, including overflow; FALSE for source NULLs and valid integers, including negatives reported by range tests."
+        data_tests:
+          - not_null
+
+      - name: is_product_weight_g_invalid
+        description: "TRUE for non-NULL malformed or nonfinite source values; FALSE for source NULLs and finite numbers, including zero and negatives reported by range tests."
+        data_tests:
+          - not_null
+
+      - name: is_product_length_cm_invalid
+        description: "TRUE for non-NULL malformed or nonfinite source values; FALSE for source NULLs and finite numbers, including nonpositive dimensions reported by range tests."
+        data_tests:
+          - not_null
+
+      - name: is_product_height_cm_invalid
+        description: "TRUE for non-NULL malformed or nonfinite source values; FALSE for source NULLs and finite numbers, including nonpositive dimensions reported by range tests."
+        data_tests:
+          - not_null
+
+      - name: is_product_width_cm_invalid
+        description: "TRUE for non-NULL malformed or nonfinite source values; FALSE for source NULLs and finite numbers, including nonpositive dimensions reported by range tests."
+        data_tests:
+          - not_null
+
+      - name: is_weight_zero
+        description: "TRUE exactly when the converted weight is zero; FALSE for nonzero weights, source NULLs and invalid weights. The weight itself is never imputed."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+                quote: false

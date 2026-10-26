@@ -1,0 +1,19 @@
+SELECT product_id
+FROM {{ ref('products') }}
+WHERE pg_typeof(product_id) <> 'text'::regtype
+   OR pg_typeof(product_category_name) <> 'text'::regtype
+   OR pg_typeof(product_name_lenght) <> 'integer'::regtype
+   OR pg_typeof(product_description_lenght) <> 'integer'::regtype
+   OR pg_typeof(product_photos_qty) <> 'integer'::regtype
+   OR pg_typeof(product_weight_g) <> 'numeric'::regtype
+   OR pg_typeof(product_length_cm) <> 'numeric'::regtype
+   OR pg_typeof(product_height_cm) <> 'numeric'::regtype
+   OR pg_typeof(product_width_cm) <> 'numeric'::regtype
+   OR pg_typeof(is_product_name_lenght_invalid) <> 'boolean'::regtype
+   OR pg_typeof(is_product_description_lenght_invalid) <> 'boolean'::regtype
+   OR pg_typeof(is_product_photos_qty_invalid) <> 'boolean'::regtype
+   OR pg_typeof(is_product_weight_g_invalid) <> 'boolean'::regtype
+   OR pg_typeof(is_product_length_cm_invalid) <> 'boolean'::regtype
+   OR pg_typeof(is_product_height_cm_invalid) <> 'boolean'::regtype
+   OR pg_typeof(is_product_width_cm_invalid) <> 'boolean'::regtype
+   OR pg_typeof(is_weight_zero) <> 'boolean'::regtype
