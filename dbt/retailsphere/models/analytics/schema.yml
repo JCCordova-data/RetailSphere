@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: monthly_sales
+    description: >-
+      Monthly product sales for delivered orders, assigned by purchase timestamp.
+      Materialized as a view in the analytics schema. Includes every calendar
+      month between the earliest and latest delivered purchases with non-NULL
+      purchase timestamps, including orders without items. Empty months have
+      zero revenue, orders and items, and a NULL average order value. No eligible
+      purchases produce no rows. NULL purchase timestamps are excluded and
+      reported by assert_monthly_sales_purchase_dates. Assumes unique, non-NULL
+      order IDs and valid non-NULL NUMERIC item prices, checked by CLEAN tests.
+    columns:
+      - name: month
+        description: "First day of the purchase calendar month, stored as DATE; the model's unique key."
+        data_tests:
+          - unique
+          - not_null
+
+      - name: product_revenue
+        description: "SUM of eligible item prices as unconstrained NUMERIC, excluding freight; zero when no prices contribute. No rounding is applied."
+        data_tests:
+          - not_null
+
+      - name: total_orders
+        description: "Distinct delivered order IDs purchased in the month, including orders without items; zero for empty months."
+        data_tests:
+          - not_null
+
+      - name: total_items
+        description: "Number of matching order-item rows, regardless of NULL item identifiers or prices; zero for empty months."
+        data_tests:
+          - not_null
+
+      - name: average_order_value
+        description: "NUMERIC product_revenue / NULLIF(total_orders, 0), without explicit rounding; NULL when total_orders is zero."
