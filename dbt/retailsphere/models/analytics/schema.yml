@@ -35,3 +35,30 @@ models:
 
       - name: average_order_value
         description: "NUMERIC product_revenue / NULLIF(total_orders, 0), without explicit rounding; NULL when total_orders is zero."
+  - name: category_sales
+    description: >-
+      Product sales grouped by category, including only delivered orders.
+      Each row represents one product category. Missing categories are
+      represented as 'unknown'. Revenue is calculated from item prices,
+      excluding freight charges.
+    columns:
+      - name: product_category_name
+        description: "Name of the category for all products that were grouped. With 'unknown' to missing values"
+        data_tests:
+          - unique
+          - not_null
+
+      - name: total_orders
+        description: "Number of distinct delivered orders per category"
+        data_tests:
+          - not_null
+
+      - name: total_items
+        description: "Number of total items that were grouped by category name"
+        data_tests:
+          - not_null
+
+      - name: product_revenue
+        description: "Sum of price, without freight_value"
+        data_tests:
+          - not_null
