@@ -62,3 +62,47 @@ models:
         description: "Sum of price, without freight_value"
         data_tests:
           - not_null
+
+  - name: delivery_performance
+    description: >-
+      One global summary row for delivered CLEAN orders, materialized as a view
+      in the analytics schema. Punctuality compares actual and estimated calendar
+      dates. Orders missing either date remain in total and missing-date counts
+      but are excluded from delivery classes and the late-rate denominator.
+      Empty input produces zero counts and NULL rate and average.
+    columns:
+      - name: total_delivered_orders
+        description: "Count of all orders with order_status = 'delivered', including non-evaluable orders."
+        data_tests:
+          - not_null
+
+      - name: evaluable_delivered_orders
+        description: "Delivered orders with both actual and estimated delivery dates."
+        data_tests:
+          - not_null
+
+      - name: missing_delivery_dates
+        description: "Delivered orders missing either or both dates; each order is counted once."
+        data_tests:
+          - not_null
+
+      - name: early_deliveries
+        description: "Evaluable delivered orders whose actual calendar date precedes the estimate."
+        data_tests:
+          - not_null
+
+      - name: on_time_deliveries
+        description: "Evaluable delivered orders whose actual calendar date equals the estimate, regardless of time."
+        data_tests:
+          - not_null
+
+      - name: late_deliveries
+        description: "Evaluable delivered orders whose actual calendar date follows the estimate."
+        data_tests:
+          - not_null
+
+      - name: late_delivery_rate_pct
+        description: "NUMERIC percentage (0-100): 100 * late_deliveries / NULLIF(evaluable_delivered_orders, 0), rounded to two decimal places; NULL with no evaluable orders."
+
+      - name: avg_late_days
+        description: "NUMERIC mean of actual DATE minus estimated DATE for late orders only, rounded to two decimal places; NULL when there are no late orders."
