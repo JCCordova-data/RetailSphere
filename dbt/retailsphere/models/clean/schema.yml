@@ -198,3 +198,68 @@ models:
               arguments:
                 values: [true, false]
                 quote: false
+
+  - name: order_reviews
+    description: >-
+      All RAW review records preserved as a multiset with safely typed scores
+      and timestamps, original text values, and quality flags. Neither review_id
+      nor order_id is a unique key. No filtering, imputation or deduplication.
+      Missing scores are permitted; non-NULL integer scores must be 1-5.
+    columns:
+      - name: review_id
+        description: "Source TEXT review identifier; may repeat across orders."
+        data_tests:
+          - not_null
+
+      - name: order_id
+        description: "Source TEXT order identifier; multiple records per order are preserved."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('orders')
+                field: order_id
+
+      - name: review_score_raw
+        description: "Original TEXT score, including NULL and malformed values."
+
+      - name: review_score
+        description: "Safely converted INTEGER; missing/malformed/overflow inputs become NULL. Out-of-range integers remain visible and fail accepted_values."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+                quote: false
+
+      - name: review_comment_title
+        description: "Optional source title preserved without normalization."
+
+      - name: review_comment_message
+        description: "Optional source review text preserved without normalization."
+
+      - name: review_creation_date_raw
+        description: "Original TEXT creation date/time, including missing or invalid inputs."
+
+      - name: review_answer_timestamp_raw
+        description: "Original TEXT answer timestamp, including missing or invalid inputs."
+
+      - name: review_creation_date
+        description: "Safely converted TIMESTAMP without time zone; NULL for absent/invalid input."
+
+      - name: review_answer_timestamp
+        description: "Safely converted TIMESTAMP without time zone; NULL for absent/invalid input."
+
+      - name: is_review_score_invalid
+        description: "TRUE for non-NULL scores that cannot be converted to INTEGER or fall outside 1-5; FALSE for source NULLs."
+        data_tests:
+          - not_null
+
+      - name: is_review_creation_date_invalid
+        description: "TRUE for non-NULL creation values rejected by safe_timestamp; FALSE for source NULLs."
+        data_tests:
+          - not_null
+
+      - name: is_review_answer_timestamp_invalid
+        description: "TRUE for non-NULL answer values rejected by safe_timestamp; FALSE for source NULLs."
+        data_tests:
+          - not_null

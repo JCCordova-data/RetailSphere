@@ -106,3 +106,90 @@ models:
 
       - name: avg_late_days
         description: "NUMERIC mean of actual DATE minus estimated DATE for late orders only, rounded to two decimal places; NULL when there are no late orders."
+
+  - name: repeat_customers
+    description: >-
+      One row per identifiable buyer with at least one distinct delivered order,
+      across all available history. customer_unique_id identifies the buyer;
+      customer_id identifies the order-linked customer record. Missing buyer
+      identities and unmatched customers are excluded and reported by a singular
+      test. Counts and repeat flags support filter-context KPI measures in Power BI.
+      No eligible purchases produce no rows.
+    columns:
+      - name: customer_unique_id
+        description: "Source TEXT buyer identifier; unique grain, never NULL or blank."
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('customers')
+                field: customer_unique_id
+
+      - name: completed_purchases
+        description: "BIGINT count of distinct delivered order IDs for the buyer; at least one."
+        data_tests:
+          - not_null
+
+      - name: is_repeat_customer
+        description: "BOOLEAN: TRUE for at least two completed purchases, FALSE for exactly one."
+        data_tests:
+          - not_null
+
+  - name: customer_satisfaction
+    description: >-
+      One row per delivered order, including orders with no valid review. Select
+      the latest valid score (integer 1-5) by answer timestamp, creation timestamp,
+      review ID in C collation ascending, then score ascending; timestamps and
+      IDs sort NULL last. Equivalent ties have identical projected review values.
+      Review coverage uses all delivered orders; positive satisfaction uses only
+      orders with a selected valid score, with 4-5 positive. This is not NPS.
+      No eligible orders produce no rows.
+    columns:
+      - name: order_id
+        description: "TEXT delivered-order identifier and unique model grain."
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('orders')
+                field: order_id
+
+      - name: order_purchase_timestamp
+        description: "CLEAN purchase TIMESTAMP for order-cohort filtering; NULL retained."
+
+      - name: review_record_count
+        description: "BIGINT count of all source review records linked to this order, including duplicates and invalid scores; zero without records."
+        data_tests:
+          - not_null
+
+      - name: valid_review_count
+        description: "BIGINT count of linked source records with scores 1-5, including duplicates; not the reviewed-order KPI."
+        data_tests:
+          - not_null
+
+      - name: selected_review_id
+        description: "Selected source review ID; may repeat across orders and may be NULL. Use has_valid_review to identify reviewed orders."
+
+      - name: review_score
+        description: "Selected INTEGER score 1-5; NULL when no valid review exists."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+                quote: false
+
+      - name: review_creation_date
+        description: "Selected review's typed creation TIMESTAMP, or NULL."
+
+      - name: review_answer_timestamp
+        description: "Selected review's typed answer TIMESTAMP, or NULL."
+
+      - name: has_valid_review
+        description: "Non-NULL BOOLEAN indicating a selected valid score, regardless of whether its review ID is present."
+        data_tests:
+          - not_null
+
+      - name: is_positive_review
+        description: "Nullable BOOLEAN: TRUE for scores 4-5, FALSE for scores 1-3, NULL without a valid review."

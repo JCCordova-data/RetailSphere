@@ -1,0 +1,26 @@
+version: 2
+
+sources:
+  - name: raw
+    description: "Olist CSV records ingested into PostgreSQL without source deduplication."
+    schema: raw
+    tables:
+      - name: order_reviews
+        description: >-
+          All source review records. Neither review_id nor order_id is unique:
+          review IDs can span orders, and an order can have multiple reviews.
+        columns:
+          - name: review_id
+            description: "Source review identifier, preserved as TEXT."
+          - name: order_id
+            description: "Reviewed order identifier, preserved as TEXT."
+          - name: review_score
+            description: "Source TEXT score; the analytical scale is integer 1 through 5."
+          - name: review_comment_title
+            description: "Optional original review title."
+          - name: review_comment_message
+            description: "Optional original review text."
+          - name: review_creation_date
+            description: "Source TEXT review creation date/time."
+          - name: review_answer_timestamp
+            description: "Source TEXT review answer date/time."
