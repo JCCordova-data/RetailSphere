@@ -2,6 +2,8 @@
 
 **End-to-End E-Commerce Data Engineering & Analytics Project**
 
+![RetailSphere executive dashboard](docs/images/dashboard-overview.png)
+
 ## Overview
 
 RetailSphere is a portfolio project focused on designing and building an end-to-end data engineering pipeline using the Brazilian E-Commerce Public Dataset by Olist.
@@ -24,13 +26,7 @@ Olist CSV Files → Python Ingestion → PostgreSQL RAW → SQL/dbt CLEAN → Po
 
 ## Technology Stack
 
-- **Python:** Data ingestion and validation.
-- **PostgreSQL:** Data storage and analytical queries.
-- **SQL and dbt:** Data transformation and testing.
-- **Docker Compose:** Local service management.
-- **Power BI:** Business intelligence and visualization.
-- **Prefect (planned for a later stage):** Pipeline orchestration.
-- **Git and GitHub:** Version control.
+Python 3.12 · PostgreSQL (Docker) · dbt Core + dbt-postgres · SQL · Power BI Desktop (DAX) · WSL2 Ubuntu · Git/GitHub
 
 ## Project Structure
 
@@ -47,6 +43,16 @@ RetailSphere/
 ├── compose.yaml
 └── README.md
 ```
+
+## Verified project checks
+
+The project owner executed a full `dbt build` successfully on 2026-11-17:
+
+- 10 dbt views (5 CLEAN and 5 ANALYTICS)
+- 108 data tests
+- `PASS=118 WARN=0 ERROR=0 SKIP=0 TOTAL=118`
+
+The five analytics models were imported and reviewed in Power BI Desktop on 2026-11-19. These results are dataset-specific historical benchmarks, not dynamically refreshed online KPIs.
 
 ## Local PostgreSQL Setup
 
@@ -116,17 +122,31 @@ The original CSV files are intentionally excluded from version control through `
 
 Raw source files should remain unchanged. Data cleaning and transformations will be implemented in subsequent pipeline stages.
 
-## Development Status
+## Dashboard
 
-The project environment and local PostgreSQL 18 infrastructure are operational.
+- Source: the five `analytics` views, imported into Power BI Desktop.
+- Report image: [`docs/images/dashboard-overview.png`](docs/images/dashboard-overview.png).
+- Power BI source file: [`powerbi/RetailSphere.pbix`](powerbi/RetailSphere.pbix) (include this line ONLY if the PBIX is committed and safe to distribute; otherwise refer to the release asset if published).
+- Requirements: Power BI Desktop on Windows to interact with the `.pbix` locally. GitHub shows the screenshot, not the live interactive Power BI report.
 
-All nine original Olist CSV files have been prepared and verified in the local RAW data directory. A basic Python CSV reading and validation exercise has also been completed.
+## Reproducibility
 
-RS-021 provides a shared Psycopg 3 ingestion engine, explicit dataset contracts,
-versioned DDL for the eight missing RAW tables, and a compatible RS-020 orders adapter.
-The CLI requires `--replace` to authorize replacement; `--dry-run` validates CSVs
-without connecting to PostgreSQL. See the [RS-021 guide](docs/RS-021.md) for usage,
-offline tests, transaction boundaries, and the deployment plan. No deployment is
-performed by importing the modules or running offline tests.
+1. Clone this repository.
+2. Install/configure Docker, PostgreSQL, Python, and dbt as documented in the existing setup sections.
+3. Obtain the original Olist CSV dataset from Kaggle and place it in the expected local input directory; raw data is not included in this repository unless explicitly permitted.
+4. Configure local database credentials privately (never commit them).
+5. Run the existing Python ingestion entry point documented in this repository.
+6. From the configured dbt project, execute `dbt debug` and `dbt build`.
+7. Open the `.pbix` file with Power BI Desktop. If refreshing against a different local PostgreSQL server, update the data source settings and supply your own credentials.
 
-SQL/dbt transformation models, orchestration, and Power BI dashboards remain planned.
+## Data source and limitations
+
+Source: [Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce).
+
+Revenue excludes freight and focuses on delivered orders. Repeat purchase rate is all-history, not monthly retention. Late delivery is based on calendar dates, excluding delivered orders with missing date fields from the denominator. Satisfaction considers valid order review scores 1–5 for delivered orders, selects one valid review per order, and defines positive scores as 4–5. This is not NPS.
+
+The MVP is local; it does not include orchestrated scheduled refresh, CI/CD, cloud deployment, or a publicly hosted live Power BI dashboard.
+
+## Documentation
+
+See `docs/RS-036.md`, `docs/RS-037.md`, `docs/RS-038.md`, and `docs/RS-039.md` for data definitions, reconciliation, data quality and limitations.
