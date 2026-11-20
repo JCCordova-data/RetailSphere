@@ -1,16 +1,19 @@
 # RetailSphere
 
-**End-to-End E-Commerce Data Engineering & Analytics Project**
+**End-to-end e-commerce data engineering and analytics project: Python → PostgreSQL → dbt → Power BI**
 
 ![RetailSphere executive dashboard](docs/images/dashboard-overview.png)
 
 ## Overview
 
-RetailSphere is a portfolio project focused on designing and building an end-to-end data engineering pipeline using the Brazilian E-Commerce Public Dataset by Olist.
+RetailSphere is a portfolio project that builds a complete data pipeline on the [Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce). Raw CSV files are ingested into PostgreSQL, cleaned and modeled with dbt following a medallion-style layering (RAW → CLEAN → ANALYTICS), and visualized in a Power BI dashboard.
 
-The goal is to transform raw e-commerce data into reliable analytical datasets and business intelligence dashboards.
+**Status:** the pipeline runs end to end locally (ingestion, dbt models and tests, Power BI report).
 
-**Current status:** Local PostgreSQL 18 infrastructure is available through Docker Compose. RS-021 implements configuration-driven RAW ingestion for all nine Olist CSVs, with offline unit tests. Deployment and generalized database integration validation remain pending.
+- Last full `dbt build`: 2026-11-17 — `PASS=118 WARN=0 ERROR=0 SKIP=0 TOTAL=118` (10 views + 108 data tests).
+- Power BI report built on the five `analytics` views and reviewed on 2026-11-19.
+
+These are build results for this specific dataset snapshot, not continuously refreshed KPIs.
 
 ## Business Objectives
 
@@ -20,133 +23,173 @@ The goal is to transform raw e-commerce data into reliable analytical datasets a
 - Analyze returning customers.
 - Evaluate customer satisfaction.
 
-## Planned Architecture
+## Architecture
 
-Olist CSV Files → Python Ingestion → PostgreSQL RAW → SQL/dbt CLEAN → PostgreSQL ANALYTICS → Power BI
+```mermaid
+flowchart LR
+    A["Olist CSV files<br/>(9 files)"] --> B["Python ingestion"]
+    B --> C[("PostgreSQL<br/>RAW · bronze")]
+    C --> D["dbt<br/>CLEAN · silver"]
+    D --> E["dbt<br/>ANALYTICS · gold"]
+    E --> F["Power BI Desktop"]
+```
+
+| Layer  | Schema      | Built with   | Purpose                                      |
+| ------ | ----------- | ------------ | -------------------------------------------- |
+| Bronze | `raw`       | Python + SQL | Source CSVs loaded unchanged into PostgreSQL |
+| Silver | `clean`     | dbt (views)  | Typed, validated and standardized tables     |
+| Gold   | `analytics` | dbt (views)  | Business-ready models consumed by Power BI   |
+
+**CLEAN models:** `customers`, `orders`, `order_items`, `order_reviews`, `products`.
+
+**ANALYTICS models:**
+
+| Model                   | Question it answers                                           |
+| ----------------------- | ------------------------------------------------------------- |
+| `monthly_sales`         | How do revenue and average order value evolve month by month? |
+| `delivery_performance`  | Which delivered orders arrived later than expected?           |
+| `category_sales`        | Which product categories drive revenue and item volume?       |
+| `repeat_customers`      | How many customers purchased more than once?                  |
+| `customer_satisfaction` | How satisfied are customers, based on review scores?          |
 
 ## Technology Stack
 
-Python 3.12 · PostgreSQL (Docker) · dbt Core + dbt-postgres · SQL · Power BI Desktop (DAX) · WSL2 Ubuntu · Git/GitHub
+Python 3.12 · PostgreSQL 18 (Docker) · dbt Core + dbt-postgres · SQL · Power BI Desktop (DAX) · WSL2 Ubuntu · Git/GitHub
 
 ## Project Structure
 
 ```text
 RetailSphere/
-├── data/
-│   └── raw/
-├── docs/
+├── compose.yaml                    # PostgreSQL via Docker Compose
+├── .env.example                    # Template for local credentials
+├── requirements.txt
+├── data/raw/                       # Olist CSVs (git-ignored, download separately)
 ├── sql/
-├── src/
-├── tests/
-├── .env.example
-├── .gitignore
-├── compose.yaml
-└── README.md
+│   └── 021_create_raw_tables.sql   # RAW table definitions
+├── src/                            # Python ingestion and profiling scripts
+│   ├── ingest_raw.py               # Configuration-driven RAW ingestion (all 9 CSVs)
+│   ├── raw_datasets.py             # Dataset definitions used by the ingestion
+│   ├── ingest_orders.py
+│   ├── explore_orders.py
+│   ├── profile_csv.py
+│   └── read_sample_csv.py
+├── tests/                          # Python tests
+├── dbt/retailsphere/
+│   ├── macros/                     # Shared SQL macros
+│   ├── models/clean/               # Silver layer
+│   ├── models/analytics/           # Gold layer
+│   └── tests/                      # Singular dbt data tests
+├── docs/
+│   ├── images/dashboard-overview.png
+│   ├── RetailSphere-dashboard.pdf
+│   └── RS-*.md                     # Implementation and data documentation
+└── powerbi/
+    └── RetailSphere.pbix           # Power BI report
 ```
 
-## Verified project checks
+## Quick Start
 
-The project owner executed a full `dbt build` successfully on 2026-11-17:
+**Prerequisites:** Docker Desktop with WSL2 integration, Docker Compose, Python 3.12, and Power BI Desktop (Windows) to open the report.
 
-- 10 dbt views (5 CLEAN and 5 ANALYTICS)
-- 108 data tests
-- `PASS=118 WARN=0 ERROR=0 SKIP=0 TOTAL=118`
+### 1. Clone and install dependencies
 
-The five analytics models were imported and reviewed in Power BI Desktop on 2026-11-19. These results are dataset-specific historical benchmarks, not dynamically refreshed online KPIs.
+```bash
+git clone https://github.com/JCCordova-data/RetailSphere.git
+cd RetailSphere
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-## Local PostgreSQL Setup
+### 2. Start PostgreSQL
 
-**Prerequisites:** Docker Desktop with WSL2 integration and Docker Compose.
+```bash
+cp .env.example .env
+```
 
-1. Create your local environment file:
+Open `.env` and replace `CHANGE_ME_TO_A_STRONG_PASSWORD` with your own strong password. **Never commit `.env` to Git.**
 
-   ```bash
-   cp .env.example .env
-   ```
+```bash
+docker compose up -d
+docker compose ps
+docker compose exec postgres pg_isready -U retailsphere -d retailsphere
+```
 
-2. Open `.env` and replace `CHANGE_ME_TO_A_STRONG_PASSWORD` with your own strong password. Never commit `.env` to Git.
+Local connection: `127.0.0.1:5432` · database `retailsphere` · user `retailsphere`.
 
-3. Start PostgreSQL:
+Data is stored in the Docker named volume `retailsphere_postgres_data`. Restarting the container keeps it. Avoid `docker compose down -v` unless you intend to delete the stored data.
 
-   ```bash
-   docker compose up -d
-   ```
+### 3. Download the dataset
 
-4. Verify the service:
-
-   ```bash
-   docker compose ps
-   docker compose exec postgres pg_isready -U retailsphere -d retailsphere
-   ```
-
-5. Run a test SQL query:
-
-   ```bash
-   docker compose exec postgres psql -U retailsphere -d retailsphere -c "SELECT current_database(), current_user;"
-   ```
-
-**Local connection:** `127.0.0.1:5432`
-
-**Database:** `retailsphere`
-
-**User:** `retailsphere`
-
-PostgreSQL data is stored in the Docker named volume `retailsphere_postgres_data`. Restarting the container does not remove the volume. Avoid `docker compose down -v` unless you explicitly intend to delete the stored data.
-
-## Dataset
-
-RetailSphere uses the [Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce).
-
-The dataset contains nine CSV files covering orders, customers, order items, payments, reviews, products, sellers, geolocation, and product category translations.
-
-### Raw Data Setup
-
-1. Download the dataset ZIP archive from Kaggle.
+1. Download the dataset ZIP from [Kaggle](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce).
 2. Extract the nine CSV files into `data/raw/`, keeping their original filenames.
-3. Verify the extracted files:
+3. Verify the files and confirm Git ignores them:
 
    ```bash
    ls -lh data/raw/
    wc -l data/raw/*.csv
-   ```
-
-4. Confirm that Git ignores the raw CSV files:
-
-   ```bash
    git check-ignore -v data/raw/*.csv
    ```
 
-The original CSV files are intentionally excluded from version control through `.gitignore`. They must be downloaded separately when setting up the project.
+The original CSVs are excluded from version control through `.gitignore`. Keep them unchanged; all cleaning happens downstream in dbt.
 
-**Data integrity:** During initial dataset preparation, all nine extracted CSV files were verified against the downloaded ZIP archive using SHA-256 checksums. No differences were detected.
+**Data integrity:** during initial preparation, all nine extracted CSV files were verified against the downloaded ZIP archive using SHA-256 checksums, with no differences.
 
-Raw source files should remain unchanged. Data cleaning and transformations will be implemented in subsequent pipeline stages.
+### 4. Create RAW tables and ingest the CSVs
+
+```bash
+docker compose exec -T postgres psql -U retailsphere -d retailsphere < sql/021_create_raw_tables.sql
+python src/ingest_raw.py
+```
+
+Details of the ingestion design are in [`docs/RS-021.md`](docs/RS-021.md).
+
+### 5. Build the CLEAN and ANALYTICS layers with dbt
+
+```bash
+cd dbt/retailsphere
+dbt debug
+dbt build
+```
+
+`dbt build` runs the 10 models and all data tests. See [`dbt/retailsphere/README.md`](dbt/retailsphere/README.md) for dbt-specific setup.
+
+### 6. Open the dashboard
+
+Open `powerbi/RetailSphere.pbix` in Power BI Desktop. To refresh against your own PostgreSQL instance, update the data source settings and enter your own credentials.
 
 ## Dashboard
 
-- Source: the five `analytics` views, imported into Power BI Desktop.
-- Report image: [`docs/images/dashboard-overview.png`](docs/images/dashboard-overview.png).
-- Power BI source file: [`powerbi/RetailSphere.pbix`](powerbi/RetailSphere.pbix) (include this line ONLY if the PBIX is committed and safe to distribute; otherwise refer to the release asset if published).
-- Requirements: Power BI Desktop on Windows to interact with the `.pbix` locally. GitHub shows the screenshot, not the live interactive Power BI report.
+- **Source:** the five `analytics` views, imported into Power BI Desktop.
+- **Screenshot:** [`docs/images/dashboard-overview.png`](docs/images/dashboard-overview.png)
+- **Full report (PDF):** [`docs/RetailSphere-dashboard.pdf`](docs/RetailSphere-dashboard.pdf)
+- **Interactive report:** [`powerbi/RetailSphere.pbix`](powerbi/RetailSphere.pbix). Requires Power BI Desktop on Windows. GitHub shows the screenshot, not the live report.
 
-## Reproducibility
+The `.pbix` was built in Import mode, so it contains the imported Olist data (publicly released and anonymized). See [License and Attribution](#license-and-attribution).
 
-1. Clone this repository.
-2. Install/configure Docker, PostgreSQL, Python, and dbt as documented in the existing setup sections.
-3. Obtain the original Olist CSV dataset from Kaggle and place it in the expected local input directory; raw data is not included in this repository unless explicitly permitted.
-4. Configure local database credentials privately (never commit them).
-5. Run the existing Python ingestion entry point documented in this repository.
-6. From the configured dbt project, execute `dbt debug` and `dbt build`.
-7. Open the `.pbix` file with Power BI Desktop. If refreshing against a different local PostgreSQL server, update the data source settings and supply your own credentials.
+## Testing and Data Quality
 
-## Data source and limitations
+- **dbt:** 108 data tests, combining schema tests and singular tests in `dbt/retailsphere/tests/`. They cover row counts against RAW, key uniqueness, valid ranges, type checks, and reconciliation of each analytics model against the CLEAN layer.
+- **Python:** tests in `tests/` cover the ingestion and profiling scripts.
 
-Source: [Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce).
+## Definitions and Limitations
 
-Revenue excludes freight and focuses on delivered orders. Repeat purchase rate is all-history, not monthly retention. Late delivery is based on calendar dates, excluding delivered orders with missing date fields from the denominator. Satisfaction considers valid order review scores 1–5 for delivered orders, selects one valid review per order, and defines positive scores as 4–5. This is not NPS.
-
-The MVP is local; it does not include orchestrated scheduled refresh, CI/CD, cloud deployment, or a publicly hosted live Power BI dashboard.
+- Revenue excludes freight and focuses on delivered orders.
+- Repeat purchase rate is all-history, not monthly retention.
+- Late delivery is based on calendar dates; delivered orders with missing date fields are excluded from the denominator.
+- Satisfaction considers valid review scores (1–5) for delivered orders, selects one valid review per order, and defines positive scores as 4–5. This is not NPS.
+- The project is local: it does not include orchestrated scheduled refresh, CI/CD, cloud deployment, or a publicly hosted live Power BI dashboard.
 
 ## Documentation
 
-See `docs/RS-036.md`, `docs/RS-037.md`, `docs/RS-038.md`, and `docs/RS-039.md` for data definitions, reconciliation, data quality and limitations.
+| File                                                                                                       | Content                                                        |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| [`docs/RS-021.md`](docs/RS-021.md)                                                                         | RAW ingestion design                                           |
+| [`docs/RS-036.md`](docs/RS-036.md) – [`docs/RS-039.md`](docs/RS-039.md)                                    | Data definitions, reconciliation, data quality and limitations |
+| [`docs/RS-031.md`](docs/RS-031.md), [`docs/RS-032.md`](docs/RS-032.md), [`docs/RS-044.md`](docs/RS-044.md) | Additional implementation notes                                |
+
+## License and Attribution
+
+This project uses the [Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce), published by Olist on Kaggle under the **CC BY-NC-SA 4.0** license. Data derived from it and included in this repository (including the data embedded in `powerbi/RetailSphere.pbix`) is shared under the same license, for non-commercial use only.
+
+Thanks to Olist for releasing the dataset.
