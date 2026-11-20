@@ -62,18 +62,19 @@ Python 3.12 · PostgreSQL 18 (Docker) · dbt Core + dbt-postgres · SQL · Power
 RetailSphere/
 ├── compose.yaml                    # PostgreSQL via Docker Compose
 ├── .env.example                    # Template for local credentials
-├── requirements.txt
+├── requirements.txt                # psycopg, dbt-core, dbt-postgres
 ├── data/raw/                       # Olist CSVs (git-ignored, download separately)
 ├── sql/
-│   └── 021_create_raw_tables.sql   # RAW table definitions
+│   ├── 020_create_raw_orders.sql   # RAW orders table
+│   └── 021_create_raw_tables.sql   # The other eight RAW tables
 ├── src/                            # Python ingestion and profiling scripts
 │   ├── ingest_raw.py               # Configuration-driven RAW ingestion (all 9 CSVs)
 │   ├── raw_datasets.py             # Dataset definitions used by the ingestion
-│   ├── ingest_orders.py
+│   ├── ingest_orders.py            # Adapter kept for the original orders ingestion
 │   ├── explore_orders.py
 │   ├── profile_csv.py
 │   └── read_sample_csv.py
-├── tests/                          # Python tests
+├── tests/                          # Python unit tests
 ├── dbt/retailsphere/
 │   ├── macros/                     # Shared SQL macros
 │   ├── models/clean/               # Silver layer
@@ -135,16 +136,36 @@ The original CSVs are excluded from version control through `.gitignore`. Keep t
 
 **Data integrity:** during initial preparation, all nine extracted CSV files were verified against the downloaded ZIP archive using SHA-256 checksums, with no differences.
 
-### 4. Create RAW tables and ingest the CSVs
+### 4. Create the RAW tables and ingest the CSVs
+
+The Python scripts do not read `.env`. Set the connection variables in your shell first (the password is typed at the prompt, so it never lands in your shell history):
 
 ```bash
-docker compose exec -T postgres psql -U retailsphere -d retailsphere < sql/021_create_raw_tables.sql
-python src/ingest_raw.py
+export PGUSER=retailsphere PGDATABASE=retailsphere
+read -rsp "PostgreSQL password: " PGPASSWORD && export PGPASSWORD && echo
 ```
 
-Details of the ingestion design are in [`docs/RS-021.md`](docs/RS-021.md).
+`PGHOST` and `PGPORT` default to `127.0.0.1` and `5432`.
+
+Create the nine RAW tables. Run this **only on an empty database**: each script fails if a table already exists.
+
+```bash
+docker compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U retailsphere -d retailsphere < sql/020_create_raw_orders.sql
+docker compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U retailsphere -d retailsphere < sql/021_create_raw_tables.sql
+```
+
+Validate the CSVs without opening a database connection, then load them:
+
+```bash
+python -m src.ingest_raw all --dry-run
+python -m src.ingest_raw all --replace
+```
+
+`--replace` truncates and reloads each RAW table inside its own transaction, so re-running replaces rows instead of appending. The ingestion checks the exact headers and row counts of the dataset version used in this project; a different Kaggle version may fail validation by design. Details are in [`docs/RS-021.md`](docs/RS-021.md) (in Spanish).
 
 ### 5. Build the CLEAN and ANALYTICS layers with dbt
+
+dbt needs a `retailsphere` profile in `~/.dbt/profiles.yml`; the template is in [`dbt/retailsphere/README.md`](dbt/retailsphere/README.md#profile-setup). It reuses the `PG*` variables from the previous step.
 
 ```bash
 cd dbt/retailsphere
@@ -152,7 +173,7 @@ dbt debug
 dbt build
 ```
 
-`dbt build` runs the 10 models and all data tests. See [`dbt/retailsphere/README.md`](dbt/retailsphere/README.md) for dbt-specific setup.
+`dbt build` runs the 10 models and all data tests.
 
 ### 6. Open the dashboard
 
@@ -169,8 +190,16 @@ The `.pbix` was built in Import mode, so it contains the imported Olist data (pu
 
 ## Testing and Data Quality
 
-- **dbt:** 108 data tests, combining schema tests and singular tests in `dbt/retailsphere/tests/`. They cover row counts against RAW, key uniqueness, valid ranges, type checks, and reconciliation of each analytics model against the CLEAN layer.
-- **Python:** tests in `tests/` cover the ingestion and profiling scripts.
+- **dbt:** 108 data tests, combining schema tests and singular tests in `dbt/retailsphere/tests/`. They cover row counts against RAW, key uniqueness, valid ranges, type checks, and reconciliation of each analytics model against the CLEAN layer. Run them with `dbt build` or `dbt test` from `dbt/retailsphere`.
+- **Python:** offline unit tests for the ingestion and profiling scripts. Every database call is mocked, so they need neither PostgreSQL nor the CSVs. From the repository root:
+
+  ```bash
+  for t in test_ingest_orders test_ingest_raw test_profile_csv test_explore_orders; do
+    python -m unittest discover -s tests -p "$t.py" -v
+  done
+  ```
+
+  `tests/test_ingest_orders_integration.py` is opt-in and writes to a dedicated test database; see its docstring before running it.
 
 ## Definitions and Limitations
 
@@ -182,11 +211,18 @@ The `.pbix` was built in Import mode, so it contains the imported Olist data (pu
 
 ## Documentation
 
-| File                                                                                                       | Content                                                        |
-| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| [`docs/RS-021.md`](docs/RS-021.md)                                                                         | RAW ingestion design                                           |
-| [`docs/RS-036.md`](docs/RS-036.md) – [`docs/RS-039.md`](docs/RS-039.md)                                    | Data definitions, reconciliation, data quality and limitations |
-| [`docs/RS-031.md`](docs/RS-031.md), [`docs/RS-032.md`](docs/RS-032.md), [`docs/RS-044.md`](docs/RS-044.md) | Additional implementation notes                                |
+Implementation notes live in `docs/`. Files are named after the ticket that produced them; RS-021 and RS-031 are written in Spanish, the rest in English.
+
+| File                                 | Content                                                  |
+| ------------------------------------ | -------------------------------------------------------- |
+| [`docs/RS-021.md`](docs/RS-021.md)   | RAW ingestion: design, CLI usage and deployment plan     |
+| [`docs/RS-031.md`](docs/RS-031.md)   | `monthly_sales` model                                    |
+| [`docs/RS-032.md`](docs/RS-032.md)   | Integration testing results for the first dbt models     |
+| [`docs/RS-036.md`](docs/RS-036.md)   | `category_sales` model                                   |
+| [`docs/RS-037.md`](docs/RS-037.md)   | `delivery_performance` model                             |
+| [`docs/RS-038.md`](docs/RS-038.md)   | `repeat_customers` model                                 |
+| [`docs/RS-039.md`](docs/RS-039.md)   | `customer_satisfaction` model                            |
+| [`docs/RS-044.md`](docs/RS-044.md)   | MVP v1.0.0 release checklist                             |
 
 ## License and Attribution
 
